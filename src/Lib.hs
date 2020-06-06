@@ -1,9 +1,8 @@
 module Lib
-    ( getAmountFromRow
-    , getAmountIndex
+    ( getAmountIndex
     , toRowsAndColumns
-    , totalCredits
-    , totalDebits
+    , total
+    , CashFlow(..)
     )
 where
 
@@ -29,18 +28,17 @@ getAmountFromRow amountIndex row = case amount of
     Just a  -> a
     where amount = readMaybe (row !! amountIndex) :: Maybe Float
 
-totalDebits :: Int -> RowsAndColumns -> Float
-totalDebits amountIndex = foldl
+total :: CashFlow -> Int -> RowsAndColumns -> Float
+total cashFlow columnIndex = foldl
     (\acc row ->
-        if (amountFromRow row) < 0 then acc + (amountFromRow row) else acc
+        let amount = amountFromRow row
+        in  if (amount `isOfCashFlowType` cashFlow) then acc + amount else acc
     )
     0
-    where amountFromRow = getAmountFromRow amountIndex
+    where amountFromRow = getAmountFromRow columnIndex
 
-totalCredits :: Int -> RowsAndColumns -> Float
-totalCredits amountIndex = foldl
-    (\acc row ->
-        if (amountFromRow row) > 0 then acc + (amountFromRow row) else acc
-    )
-    0
-    where amountFromRow = getAmountFromRow amountIndex
+isOfCashFlowType :: Float -> CashFlow -> Bool
+isOfCashFlowType amount cashFlow = case cashFlow of
+    Debit  -> (amount < 0.0)
+    Credit -> (amount > 0.0)
+

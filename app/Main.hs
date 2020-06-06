@@ -1,6 +1,10 @@
 module Main where
 
-import           Lib
+import           Lib                            ( getAmountIndex
+                                                , toRowsAndColumns
+                                                , total
+                                                , CashFlow(..)
+                                                )
 import           System.IO
 
 main = do
@@ -10,8 +14,8 @@ main = do
         Nothing -> putStrLn "whoops!"
         Just index ->
             let (debits, credits) =
-                        ( (totalDebits index rowsAndColumns)
-                        , (totalCredits index rowsAndColumns)
+                        ( (total Debit index rowsAndColumns)
+                        , (total Credit index rowsAndColumns)
                         )
             in  print
                     $  "DEBITS: "
