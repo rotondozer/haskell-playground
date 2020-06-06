@@ -10,8 +10,19 @@ main = do
     contents <- readFile "../../Downloads/EXPORT.CSV"
     let rowsAndColumns = toRowsAndColumns contents
     case (getAmountIndex rowsAndColumns) of
-        Nothing    -> putStrLn "whoops!"
-        Just index -> print $ totalDebits index rowsAndColumns
+        Nothing -> putStrLn "whoops!"
+        Just index ->
+            let (debits, credits) =
+                        ( (totalDebits index rowsAndColumns)
+                        , (totalCredits index rowsAndColumns)
+                        )
+            in  print
+                    $  "DEBITS: "
+                    ++ (show debits)
+                    ++ " / CREDITS: "
+                    ++ (show credits)
+                    ++ " / NET: "
+                    ++ (show (credits + debits))
 
 
 toRowsAndColumns :: String -> [[String]]
@@ -31,6 +42,14 @@ totalDebits :: Int -> [[String]] -> Float
 totalDebits amountIndex = foldl
     (\acc row ->
         if (amountFromRow row) < 0 then acc + (amountFromRow row) else acc
+    )
+    0
+    where amountFromRow = getAmountFromRow amountIndex
+
+totalCredits :: Int -> [[String]] -> Float
+totalCredits amountIndex = foldl
+    (\acc row ->
+        if (amountFromRow row) > 0 then acc + (amountFromRow row) else acc
     )
     0
     where amountFromRow = getAmountFromRow amountIndex
