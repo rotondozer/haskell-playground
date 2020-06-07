@@ -33,31 +33,47 @@ acctDescriptionColumn :: RowsAndColumns -> Maybe ColumnIndex
 acctDescriptionColumn rowsAndColumns =
     elemIndex "\"Description\"" (head rowsAndColumns)
 
-getAmountFromRow :: ColumnIndex -> Row -> Float
-getAmountFromRow amountColumn row = fromMaybe 0 amount
+getCashFlowAmt :: ColumnIndex -> Row -> Float
+getCashFlowAmt amountColumn row = fromMaybe 0 amount
     where amount = readMaybe (row !! amountColumn) :: Maybe Float
 
-total :: ColumnIndex -> RowsAndColumns -> (Float, Float)
-total amtColIndex = foldl
-    (\(debits, credits) row -> case (toCashFlow . amountFromRow) row of
-        Debit  account d -> (debits + d, credits)
-        Credit account c -> (debits, credits + c)
+getAcctDescription :: ColumnIndex -> Row -> String
+getAcctDescription descColumn row = fromMaybe "NO DESCRIPTION" description
+    where description = readMaybe (row !! descColumn) :: Maybe String
+
+cashFlowReport :: ColumnIndex -> ColumnIndex -> RowsAndColumns -> CashFlowReport
+cashFlowReport amtColIndex descColIndex = map
+    (\row -> (toCashFlow row getAmount getDescription))
+  where
+    getAmount      = getCashFlowAmt amtColIndex
+    getDescription = getAcctDescription descColIndex
+
+total :: CashFlowReport -> (Float, Float)
+total = foldl
+    (\(debits, credits) cashFlow -> case cashFlow of
+        Debit  _ d -> (debits + d, credits)
+        Credit _ c -> (debits, credits + c)
     )
     (0, 0)
-    where amountFromRow = getAmountFromRow amtColIndex
 
-toCashFlow :: Float -> CashFlow
-toCashFlow amount = if amount < 0.0 then Debit "" amount else Credit "" amount
+toCashFlow :: Row -> (Row -> Float) -> (Row -> String) -> CashFlow
+toCashFlow row getAmount getDescription = if amount < 0
+    then Debit (getDescription row) amount
+    else Credit (getDescription row) amount
+    where amount = getAmount row
 
 monthlyExpenseReport :: String -> String
 monthlyExpenseReport csvFileContents = case cashFlowColumn rowsAndColumns of
     Nothing -> "ERROR: Could not find \"Amount\" column in CSV"
-    Just index ->
-        let (debits, credits) = total index rowsAndColumns
+    Just cfColumn ->
+        let (debits, credits) =
+                    total (cashFlowReport cfColumn descColumn rowsAndColumns)
         in  "DEBITS: "
                 ++ (show debits)
                 ++ " / CREDITS: "
                 ++ (show credits)
                 ++ " / NET: "
                 ++ (show $ credits + debits)
-    where rowsAndColumns = toRowsAndColumns csvFileContents
+  where
+    rowsAndColumns = toRowsAndColumns csvFileContents
+    descColumn     = fromMaybe 3 (acctDescriptionColumn rowsAndColumns) -- TODO
