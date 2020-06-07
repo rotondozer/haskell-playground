@@ -5,4 +5,6 @@ import           System.IO
 
 main = do
     contents <- readFile "../../Downloads/EXPORT.CSV"
-    print $ monthlyExpenseReport contents
+    let expenseReport = monthlyExpenseReport contents
+    writeFile "../../Downloads/expense_report.txt" expenseReport
+    print $ expenseReport
