@@ -8,10 +8,12 @@ import           Data.List.Split
 import           Data.Maybe                     ( fromMaybe )
 import           Text.Read
 
-type Account = String
-type Row = [Account]
+type ColumnIndex = Int
+type Row = [String]
+
 type RowsAndColumns = [Row] -- TODO: what's the real way of modeling 2d matrix?
 
+type Account = String
 data CashFlow = Debit Account Float | Credit  Account Float  -- TODO: Debit NegativeFloat | Credit ZeroOrGreaterFloat
 type CashFlowReport = [CashFlow]
 
@@ -24,39 +26,38 @@ toRowsAndColumns :: String -> RowsAndColumns
 toRowsAndColumns contents = map (splitOneOf ",\\") tableRows
     where tableRows = lines contents
 
-getAmountIndex :: RowsAndColumns -> Maybe Int
-getAmountIndex rowsAndColumns = elemIndex "\"Amount\"" (head rowsAndColumns)
+cashFlowColumn :: RowsAndColumns -> Maybe ColumnIndex
+cashFlowColumn rowsAndColumns = elemIndex "\"Amount\"" (head rowsAndColumns)
 
+acctDescriptionColumn :: RowsAndColumns -> Maybe ColumnIndex
+acctDescriptionColumn rowsAndColumns =
+    elemIndex "\"Description\"" (head rowsAndColumns)
 
-columnIndex :: String -> RowsAndColumns -> Maybe Int
-columnIndex column rowsAndColumns = elemIndex column (head rowsAndColumns)
+getAmountFromRow :: ColumnIndex -> Row -> Float
+getAmountFromRow amountColumn row = fromMaybe 0 amount
+    where amount = readMaybe (row !! amountColumn) :: Maybe Float
 
-getAmountFromRow :: Int -> Row -> Float
-getAmountFromRow amountIndex row = fromMaybe 0 amount
-    where amount = readMaybe (row !! amountIndex) :: Maybe Float
-
-total :: Int -> RowsAndColumns -> (Float, Float)
-total columnIndex = foldl
-    (\(debits, credits) row -> case (toCashFlow (amountFromRow row)) of
+total :: ColumnIndex -> RowsAndColumns -> (Float, Float)
+total amtColIndex = foldl
+    (\(debits, credits) row -> case (toCashFlow . amountFromRow) row of
         Debit  account d -> (debits + d, credits)
         Credit account c -> (debits, credits + c)
     )
     (0, 0)
-    where amountFromRow = getAmountFromRow columnIndex
+    where amountFromRow = getAmountFromRow amtColIndex
 
 toCashFlow :: Float -> CashFlow
 toCashFlow amount = if amount < 0.0 then Debit "" amount else Credit "" amount
 
 monthlyExpenseReport :: String -> String
-monthlyExpenseReport csvFileContents =
-    case (columnIndex "\"Amount\"" rowsAndColumns) of
-        Nothing -> "ERROR: Could not find \"Amount\" column in CSV"
-        Just index ->
-            let (debits, credits) = total index rowsAndColumns
-            in  "DEBITS: "
-                    ++ (show debits)
-                    ++ " / CREDITS: "
-                    ++ (show credits)
-                    ++ " / NET: "
-                    ++ (show $ credits + debits)
+monthlyExpenseReport csvFileContents = case cashFlowColumn rowsAndColumns of
+    Nothing -> "ERROR: Could not find \"Amount\" column in CSV"
+    Just index ->
+        let (debits, credits) = total index rowsAndColumns
+        in  "DEBITS: "
+                ++ (show debits)
+                ++ " / CREDITS: "
+                ++ (show credits)
+                ++ " / NET: "
+                ++ (show $ credits + debits)
     where rowsAndColumns = toRowsAndColumns csvFileContents
